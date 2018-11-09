@@ -23,8 +23,8 @@ class ZhihuItem(scrapy.Item):
     anser_poster = scrapy.Field()
     followers_num = scrapy.Field()
     followers_list = scrapy.Field()
-    fans_num = scrapy.Field()
-    fans_list = scrapy.Field()
+    followings_num = scrapy.Field()
+    followings_list = scrapy.Field()
 
     
     
