@@ -25,6 +25,9 @@ class ZhihuItem(scrapy.Item):
     followers_list = scrapy.Field()
     followings_num = scrapy.Field()
     followings_list = scrapy.Field()
+    max_page_followings = scrapy.Field()
+    max_page_followers = scrapy.Field()
+
 
     
     

@@ -14,8 +14,6 @@ import time
 
 class ZhLoginSpider(scrapy.Spider):
 	name = 'zhihu_login'
-	flag = 0
-	pp = 0 
 # #capsion_ticket 与 z_c0是两个会更改的参量
 
 
@@ -87,7 +85,8 @@ class ZhLoginSpider(scrapy.Spider):
 	def start_requests(self):
 		self.flag = 0
 		#url = 'https://www.zhihu.com/'
-		url = 'https://www.zhihu.com/people/sammy_shen/activities'
+		url = 'https://www.zhihu.com/people/fei-ming-39-77/activities'
+		url = 'https://www.zhihu.com/people/qian-xiao-bao-63/activities'
 		# url = 'https://www.zhihu.com/people/ggg-ah/activities'
 		#url = 'https://www.zhihu.com/people/li-shuai-mai-mai-ti/activities'
 	# 	formdata = {
@@ -188,6 +187,10 @@ class ZhLoginSpider(scrapy.Spider):
 		followers_url = base_url + followers_url 
 		followings_url = base_url + followings_url
 
+		#followers_num & followings_num
+		followings_num = response.xpath('//strong[@class="NumberBoard-itemValue"]/text()').extract()[0]
+		followers_num = response.xpath('//strong[@class="NumberBoard-itemValue"]/text()').extract()[1]
+
 
 		item['user_name'] = user_name[0]
 		item['one_sentence_intro'] = one_sentence_intro
@@ -199,9 +202,17 @@ class ZhLoginSpider(scrapy.Spider):
 		item['brief_intro'] = brief_intro
 		item['followers_list'] = []
 		item['followings_list'] = []
+		item['followers_num'] = followers_num
+		item['followings_num'] = followings_num
+		 
+
+		#获得粉丝的最大页码
+		max_page_followers = int(int(followers_num)/20) + 1
+
+		item['max_page_followers'] = max_page_followers
 
 		base_url = followers_url + '?page='
-		for page in range(1,4):
+		for page in range(1,max_page_followers + 1):
 			
 			followers_url = base_url + str(page)
 			yield scrapy.Request(followers_url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'page':page,'followers_url':followers_url,'followings_url':followings_url},callback = self.followers_list_p,dont_filter=True)
@@ -215,49 +226,58 @@ class ZhLoginSpider(scrapy.Spider):
 		item = response.meta['ikey']
 		followers_script = response.xpath('//script[@id="js-initialData"]/text()').extract()
 		# time.sleep(5)
-		res_str1 = r'"thankedCount":(.*?)null'
+		res_str1 = r'"initialState":(.*?)"followingColumnsByUser"'
 		followers_detail = re.findall(res_str1,followers_script[0])[0]
 
 		res_str2 = r'"name":"(.*?)","url"'
+		res_str3 = r'"name":".+'
 		followers_name = re.findall(res_str2,followers_detail)
+
 		if followers_name == []:
+			#print(response.text)
 			lost_page = response.meta['page']
 			yield scrapy.Request(response.url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'page':lost_page,'followers_url':response.meta['followers_url'],'followings_url':response.meta['followings_url']},callback = self.followers_list_p,dont_filter=True)
+		# else:
+		# 	#followers_name[0] = str(re.findall(res_str3,followers_name[0]))
+		# 	print(followers_name)
+			#followers_name[0].replace('","name":"','')
 		#这里的dont filter特别重要，因为scrapy会自动过滤重复请求！
 
 
 		
 		item['followers_list'].extend(followers_name)
 
-		if len(item['followers_list']) == 60:  #当粉丝读取完毕
-			followings_url = response.meta['followings_url'] + '?page='
-			page = 1  
-			followings_url = followings_url + str(page)
-			yield scrapy.Request(followings_url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'followings_url':followings_url,'page':page},callback = self.followings_list_p,dont_filter=True)
+		if len(item['followers_list']) > (item['max_page_followers'] - 1) * 20:  #当粉丝读取完毕
+			max_page_followings = int(int(item['followings_num'])/20) + 1
+			item['max_page_followings'] = max_page_followings
+			base_url = response.meta['followings_url'] + '?page='
+			for page in range(1,max_page_followings + 1):  
+				followings_url = base_url + str(page)
+				yield scrapy.Request(followings_url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'followings_url':followings_url,'page':page},callback = self.followings_list_p,dont_filter=True)
 
 
 
-		#print(response.meta['page'])
-		# if len(item['followers_list']) == 80:
-		# 	print(len(item['followers_list']))
-		# print(len(item['followers_list']))
 	def followings_list_p(self,response):
 
 		item = response.meta['ikey']
 		followings_script = response.xpath('//script[@id="js-initialData"]/text()').extract()
 		# time.sleep(5)
-		res_str1 = r'"initialState":(.*?){"major":'
+		res_str1 = r'"initialState":(.*?)"unlockTicketStatus"'
 		followings_detail = re.findall(res_str1,followings_script[0])[0]
 		# print(followings_detail)
 
-		res_str2 = r'"name":"(.*?)","url"'
+		res_str2 = r'"name":"(.*?)","'
+		# res_str3 = r'","name":".+'
+
 		followings_name = re.findall(res_str2,followings_detail)
+		# followers_name = re.findall(res_str2,followers_detail)
+		# followers_name[0] = re.findall(res_str3,followers_name[0])
 		if followings_name == []:
 			lost_page = response.meta['page']
 			yield scrapy.Request(response.url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'page':lost_page,'followings_url':response.meta['followings_url']},callback = self.followings_list_p,dont_filter=True)
 		#这里的dont filter特别重要，因为scrapy会自动过滤重复请求！
 		item['followings_list'].extend(followings_name)
-		if item['followings_list'] != []:
+		if len(item['followings_list']) > (item['max_page_followings'] - 1) * 20:
 			print(item)
 			yield item
 
