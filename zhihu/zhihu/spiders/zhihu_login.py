@@ -86,7 +86,8 @@ class ZhLoginSpider(scrapy.Spider):
 		self.flag = 0
 		#url = 'https://www.zhihu.com/'
 		url = 'https://www.zhihu.com/people/fei-ming-39-77/activities'
-		url = 'https://www.zhihu.com/people/qian-xiao-bao-63/activities'
+		url = 'https://www.zhihu.com/people/supergo/activities'
+		#url = 'https://www.zhihu.com/people/lishangyuan/activities'
 		# url = 'https://www.zhihu.com/people/ggg-ah/activities'
 		#url = 'https://www.zhihu.com/people/li-shuai-mai-mai-ti/activities'
 	# 	formdata = {
@@ -96,7 +97,6 @@ class ZhLoginSpider(scrapy.Spider):
 		#resp = requests.get(url,headers=self.headers,cookies=self.cookies)
 		#print(resp.text)
 	def parse(self,response):
-		global flag
 
 		#global followers_list
 		item = ZhihuItem()
@@ -164,7 +164,7 @@ class ZhLoginSpider(scrapy.Spider):
 
 		res_str4_1 = r'"major":(.*?)","url":'
 		major_str = re.findall(res_str4_1,intro_use)
-		if len(business_str) == 0:
+		if len(major_str) == 0:
 			major = ''
 		else:
 			res_str4_2 = r'","name":".+'
@@ -178,14 +178,20 @@ class ZhLoginSpider(scrapy.Spider):
 			brief_intro = ''
 		else:
 			brief_intro = brief_intro_str[0]
+		# print(response.text)
+		# print(brief_intro)
 
 		
 		#followers
+		# https://www.zhihu.com/people/xingzhe8848/activities
 		base_url = 'https://www.zhihu.com'
 		followers_url = response.xpath('//a[@class="Button NumberBoard-item Button--plain"]/@href').extract()[1]
 		followings_url = response.xpath('//a[@class="Button NumberBoard-item Button--plain"]/@href').extract()[0]
 		followers_url = base_url + followers_url 
 		followings_url = base_url + followings_url
+		# followings_url = self.url.replace('activities','followings')
+		# followers_url = self.url.replace('activities','followers')
+
 
 		#followers_num & followings_num
 		followings_num = response.xpath('//strong[@class="NumberBoard-itemValue"]/text()').extract()[0]
@@ -213,6 +219,7 @@ class ZhLoginSpider(scrapy.Spider):
 
 		base_url = followers_url + '?page='
 		for page in range(1,max_page_followers + 1):
+		# for page in range(1,2):
 			
 			followers_url = base_url + str(page)
 			yield scrapy.Request(followers_url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'page':page,'followers_url':followers_url,'followings_url':followings_url},callback = self.followers_list_p,dont_filter=True)
@@ -221,31 +228,66 @@ class ZhLoginSpider(scrapy.Spider):
 		#yield scrapy.Request('https://www.zhihu.com',cookies=self.cookies,headers = self.headers,callback = self.test)
 
 
-	def followers_list_p(self,response):
+	# def followers_list_p(self,response):
 
+	# 	item = response.meta['ikey']
+	# 	followers_script = response.xpath('//script[@id="js-initialData"]/text()').extract()
+	# 	# time.sleep(5)
+	# 	res_str1 = r'"initialState":(.*?)"followingColumnsByUser"'
+	# 	followers_detail = re.findall(res_str1,followers_script[0])[0]
+
+	# 	res_str2 = r'"name":"(.*?)","url"'
+	# 	res_str3 = r'"name":".+'
+	# 	followers_name = re.findall(res_str2,followers_detail)
+
+	# 	if followers_name == []:
+	# 		#print(response.text)
+	# 		lost_page = response.meta['page']
+	# 		yield scrapy.Request(response.url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'page':lost_page,'followers_url':response.meta['followers_url'],'followings_url':response.meta['followings_url']},callback = self.followers_list_p,dont_filter=True)
+		
+
+
+		
+	# 	item['followers_list'].extend(followers_name)
+
+	# 	if len(item['followers_list']) > (item['max_page_followers'] - 1) * 20:  #当粉丝读取完毕
+	# 		max_page_followings = int(int(item['followings_num'])/20) + 1
+	# 		item['max_page_followings'] = max_page_followings
+	# 		base_url = response.meta['followings_url'] + '?page='
+	# 		for page in range(1,max_page_followings + 1):  
+	# 			followings_url = base_url + str(page)
+	# 			yield scrapy.Request(followings_url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'followings_url':followings_url,'page':page},callback = self.followings_list_p,dont_filter=True)
+
+	def followers_list_p(self,response):
+		#time.sleep(2)
 		item = response.meta['ikey']
 		followers_script = response.xpath('//script[@id="js-initialData"]/text()').extract()
 		# time.sleep(5)
 		res_str1 = r'"initialState":(.*?)"followingColumnsByUser"'
 		followers_detail = re.findall(res_str1,followers_script[0])[0]
 
-		res_str2 = r'"name":"(.*?)","url"'
+		res_str2 = r'","urlToken(.*?)","url":"'
 		res_str3 = r'"name":".+'
-		followers_name = re.findall(res_str2,followers_detail)
+		res_str4 = r'":"(.*?)","id":"'
+		followers_info = re.findall(res_str2,followers_detail)
 
-		if followers_name == []:
+		# if len(followers_info) < 2 and followers_info != [] :
+		if followers_info == [] or len(followers_info) == 1:
 			#print(response.text)
 			lost_page = response.meta['page']
 			yield scrapy.Request(response.url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'page':lost_page,'followers_url':response.meta['followers_url'],'followings_url':response.meta['followings_url']},callback = self.followers_list_p,dont_filter=True)
-		# else:
-		# 	#followers_name[0] = str(re.findall(res_str3,followers_name[0]))
-		# 	print(followers_name)
-			#followers_name[0].replace('","name":"','')
-		#这里的dont filter特别重要，因为scrapy会自动过滤重复请求！
-
-
 		
-		item['followers_list'].extend(followers_name)
+		#找到粉丝的昵称与url
+		base_url = 'https://www.zhihu.com/people/'
+		for ele in followers_info:
+			if len(ele) < 200:
+				ele_name = re.findall(res_str3,ele)[0]
+				ele_name = ele_name.replace('"name":"','')
+				ele_url = base_url + re.findall(res_str4,ele)[0]
+				item['followers_list'].extend([[ele_name,ele_url]])
+			else:
+				continue
+			# item['followers_list']['followers_url'].extend(ele_url)
 
 		if len(item['followers_list']) > (item['max_page_followers'] - 1) * 20:  #当粉丝读取完毕
 			max_page_followings = int(int(item['followings_num'])/20) + 1
@@ -266,27 +308,127 @@ class ZhLoginSpider(scrapy.Spider):
 		followings_detail = re.findall(res_str1,followings_script[0])[0]
 		# print(followings_detail)
 
-		res_str2 = r'"name":"(.*?)","'
-		# res_str3 = r'","name":".+'
+		res_str2 = r'","urlToken(.*?)","url":"'
+		res_str3 = r'"name":".+'
+		res_str4 = r'":"(.*?)","id":"'
+		followings_info = re.findall(res_str2,followings_detail)
 
-		followings_name = re.findall(res_str2,followings_detail)
-		# followers_name = re.findall(res_str2,followers_detail)
-		# followers_name[0] = re.findall(res_str3,followers_name[0])
-		if followings_name == []:
+		res_str5 = r'"headline":".+'
+		res_str6 = r'","urlToken":"(.*?)","id":"'
+#or len(followings_info) < 20
+		if followings_info == [] or len(followings_info) <7:
 			lost_page = response.meta['page']
 			yield scrapy.Request(response.url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'page':lost_page,'followings_url':response.meta['followings_url']},callback = self.followings_list_p,dont_filter=True)
 		#这里的dont filter特别重要，因为scrapy会自动过滤重复请求！
-		item['followings_list'].extend(followings_name)
+		
+		#找到关注用户的昵称与url
+		base_url = 'https://www.zhihu.com/people/'
+		# if len(followings_info) < 7:
+		# 	print(followings_info)
+
+		for ele in followings_info:
+			if len(ele) > 300:
+				tmp = re.findall(res_str5,ele)
+				if len(tmp) == 0:
+					continue
+				else:
+				#print(tmp)
+					ele_name = re.findall(res_str3,tmp[0])[0]
+					ele_name = ele_name.replace('"name":"','')
+					ele_url = base_url + re.findall(res_str6,tmp[0])[0]
+					item['followings_list'].extend([[ele_name,ele_url]])
+				#print(123)
+			else:
+
+				ele_name = re.findall(res_str3,ele)[0]
+				ele_name = ele_name.replace('"name":"','')
+				ele_url = base_url + re.findall(res_str4,ele)[0]
+				item['followings_list'].extend([[ele_name,ele_url]])
+
+
+
 		if len(item['followings_list']) > (item['max_page_followings'] - 1) * 20:
 			print(item)
 			yield item
 
+	def second_parse(self,response):
 
-	def test(self,response):
-		print('over!')
-		#print(response.text)
+			user_name = response.xpath('//span[@class="ProfileHeader-name"]/text()').extract()
+			one_sentence_intro = response.xpath('//span[@class="RichText ztext ProfileHeader-headline"]/text()').extract()
+			
+			#包含个人信息的部分
+			intro_detail = response.xpath('//script[@id="js-initialData"]/text()').extract()[0]
+			res_str1 = r'"initialState":{"common":{"ask":{}}(.*?)}},"questions":'
+			intro_use = re.findall(res_str1,intro_detail)
+			intro_use = intro_use[0]
 
-	def read_list_again(self,response):
-		print(123)
+			#gender
+			res_str2 = r'"gender":.+'
+			gender_str = re.findall(res_str2,intro_use)[0]
+			gender_num = int(gender_str.replace('"gender":',''))
+			if gender_num == 1:
+				gender = '男'
+			elif gender_num == 0:
+				gender = '女'
+			else:
+				gender = ''
 
+			#one_sentence_intro
+			res_str3 = r'"headline":"(.*?)","urlToken"'
+			one_sentence_intro = re.findall(res_str3,intro_use)[0]
+			
+			#user_location
+			res_str4_1 = r'"locations":(.*?)","url":"'
+			location_str = re.findall(res_str4_1,intro_use)
+			if len(location_str) ==0:
+				location = ''
+			else:
+				res_str4_2 = r'","name":".+'
+				location_str = re.findall(res_str4_2,location_str[0])[0]
+				location = location_str.replace('","name":"','')
+
+			#user_job 
+			res_str4_1 = r'"business":(.*?)","url":'
+			business_str = re.findall(res_str4_1,intro_use)
+			if len(business_str) == 0:
+				business = ''
+			else:
+				res_str4_2 = r'","name":".+'
+				business_str = re.findall(res_str4_2,business_str[0])[0]
+				business = business_str.replace('","name":"','')
+
+			#school&college
+			res_str4_1 = r'"school":(.*?)","url":'
+			education_str = re.findall(res_str4_1,intro_use)
+			if len(education_str) == 0:
+				education = ''
+			elif len(education_str) ==1:
+				res_str4_2 = r'","name":".+'
+				education_str = re.findall(res_str4_2,education_str[0])[0]
+				education = education_str.replace('","name":"','')
+			else:
+				education = []
+				for i in range(len(education_str)):
+					res_str4_2 = r'","name":".+'
+					tmp = re.findall(res_str4_2,education_str[i])[0]
+					tmp = tmp.replace('","name":"','')
+					education.append(tmp)
+			#major
+
+			res_str4_1 = r'"major":(.*?)","url":'
+			major_str = re.findall(res_str4_1,intro_use)
+			if len(major_str) == 0:
+				major = ''
+			else:
+				res_str4_2 = r'","name":".+'
+				major_str = re.findall(res_str4_2,major_str[0])[0]
+				major = major_str.replace('","name":"','')
+
+			#brief_introduction
+			res_str4_1 = r'"description":"(.*?)","'
+			brief_intro_str = re.findall(res_str4_1,intro_use)
+			if len(brief_intro_str) == 0:
+				brief_intro = ''
+			else:
+				brief_intro = brief_intro_str[0]
 

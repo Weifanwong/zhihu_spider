@@ -1,0 +1,33 @@
+	def followers_list_p(self,response):
+
+		item = response.meta['ikey']
+		followers_script = response.xpath('//script[@id="js-initialData"]/text()').extract()
+		# time.sleep(5)
+		res_str1 = r'"initialState":(.*?)"followingColumnsByUser"'
+		followers_detail = re.findall(res_str1,followers_script[0])[0]
+
+		res_str2 = r'","urlToken(.*?)","url":"'
+		res_str3 = r'"name":".+'
+		res_str4 = r'":"(.*?)","id":"'
+		followers_info = re.findall(res_str2,followers_detail)
+
+		if followers_info == []:
+			#print(response.text)
+			lost_page = response.meta['page']
+			yield scrapy.Request(response.url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'page':lost_page,'followers_url':response.meta['followers_url'],'followings_url':response.meta['followings_url']},callback = self.followers_list_p,dont_filter=True)
+
+		base_url = 'https://www.zhihu.com/people/'
+		for ele in followers_info:
+			ele_name = re.findall(res_str3,followers_info)[0]
+			ele_url = base_url + re.findall(res_str4,followers_info)[0]
+			yield scrapy,Request(ele_url,callback=self.sconde_parse)
+		
+		item['followers_list'].extend(followers_name)
+
+		if len(item['followers_list']) > (item['max_page_followers'] - 1) * 20:  #当粉丝读取完毕
+			max_page_followings = int(int(item['followings_num'])/20) + 1
+			item['max_page_followings'] = max_page_followings
+			base_url = response.meta['followings_url'] + '?page='
+			for page in range(1,max_page_followings + 1):  
+				followings_url = base_url + str(page)
+				yield scrapy.Request(followings_url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'followings_url':followings_url,'page':page},callback = self.followings_list_p,dont_filter=True)

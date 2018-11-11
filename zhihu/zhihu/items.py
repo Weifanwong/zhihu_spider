@@ -12,6 +12,7 @@ class ZhihuItem(scrapy.Item):
     # define the fields for your item here like:
     # name = scrapy.Field()
     user_name = scrapy.Field()
+    url = scrapy.Field()
     one_sentence_intro = scrapy.Field()
     user_gender = scrapy.Field()
     user_location = scrapy.Field()
