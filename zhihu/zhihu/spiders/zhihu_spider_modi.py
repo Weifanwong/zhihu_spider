@@ -13,7 +13,7 @@ import time
 #capsion_ticket 与 z_c0是两个会更改的参量
 
 class ZhLoginSpider(scrapy.Spider):
-	name = 'zhihu_spider2'
+	name = 'zhihu'
 
 	cookies={
 	'_gads':'ID=6e8f432804cef60c:T=1541602740:S=ALNI_MY3N0Qg8ks3k6pe3zHhUKSaAvNCnA',
@@ -42,6 +42,7 @@ class ZhLoginSpider(scrapy.Spider):
 		# url ='https://www.zhihu.com/people/nan-gua-bu-ting-hua/activities'
 		url ='https://www.zhihu.com/people/lin-xi-89-4/activities'
 		url = 'https://www.zhihu.com/people/stayhealthy/activities'
+		url = 'https://www.zhihu.com/people/li-li-78-71-6/activities'
 		yield scrapy.Request(url,cookies=self.cookies,headers = self.headers,callback = self.parse)
 	
 	def parse(self,response):
@@ -178,117 +179,150 @@ class ZhLoginSpider(scrapy.Spider):
 
 	def followers_list_p(self,response):
 		#time.sleep(2)
-		# print("正在读取第 %d 页粉丝" % response.meta['page'])
-
+		print("正在读取第 %d 页粉丝" % response.meta['page'])
+		err_read_followers1 = 0 #代表该页粉丝读取正常
+		err_read_followers2 = 0
 		item = response.meta['ikey']
 		followers_script = response.xpath('//script[@id="js-initialData"]/text()').extract()
 		# time.sleep(5)
 		res_str1 = r'"initialState":(.*?)"followingColumnsByUser"'
 		followers_detail = re.findall(res_str1,followers_script[0])[0]
+		# print(followers_detail)
 
 		res_str2 = r'","urlToken(.*?)","url":"'
 		res_str3 = r'"name":".+'
 		res_str4 = r'":"(.*?)","id":"'
-		followers_info = re.findall(res_str2,followers_detail)
+		res_str5 = r'","urlToken":".+'
+		res_str6 = r'","urlToken":"(.*?)","id":"'
+		followers_info = re.findall(res_str2,followers_detail) #follower_info里面存储的是每个粉丝的基本信息
 		# print(response.meta['page'],len(followers_info))
 		# if len(followers_info) < 2 and followers_info != [] :
-		if followers_info == []:
-			#print(response.text)
-			lost_page = response.meta['page']
-			print("第 %d 页粉丝丢失！正在重新读取..." % lost_page)
-			yield scrapy.Request(response.url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'page':lost_page,'followers_url':response.meta['followers_url'],'followings_url':response.meta['followings_url'],'max_page_followers':response.meta['max_page_followers']},callback = self.followers_list_p,dont_filter=True)
+		# if followers_info == []:
+		# 	flag_read_followers = 0
+		# 	#print(response.text)
+		# 	lost_page = response.meta['page']
+		# 	print("第 %d 页粉丝一个没有！" % lost_page)
+		# 	yield scrapy.Request(response.url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'page':lost_page,'followers_url':response.meta['followers_url'],'max_page_followers':response.meta['max_page_followers']},callback = self.followers_list_p,dont_filter=True)
 		
-		if len(followers_info) != 20 and response.meta['page']!= response.meta['max_page_followers']:
+		# 错误的 if len(followers_info) < 20 and len(followers_info) >0 and response.meta['page'] != response.meta['max_page_followers'] or followers_info == []:
+		if response.meta['page'] != response.meta['max_page_followers'] and len(followers_info) != 20:
+			err_read_followers1 = 1
 			lost_page = response.meta['page']
-			print("第 %d 页粉丝丢失！正在重新读取..." % lost_page)
+			print("第 %d 页粉丝没到20！" % lost_page)
 			yield scrapy.Request(response.url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'page':lost_page,'followers_url':response.meta['followers_url'],'max_page_followers':response.meta['max_page_followers']},callback = self.followers_list_p,dont_filter=True)
 		
+		if response.meta['page'] == response.meta['max_page_followers'] and len(followers_info) != (int(item['followers_num'])  % 20):
+			err_read_followers2 = 1
+			lost_page = response.meta['page']
+			print("最后一页粉丝没读够！" )
+			yield scrapy.Request(response.url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'page':lost_page,'followers_url':response.meta['followers_url'],'max_page_followers':response.meta['max_page_followers']},callback = self.followers_list_p,dont_filter=True)
 
 
 
 
 		#找到粉丝的昵称与url
-		base_url = 'https://www.zhihu.com/people/'
-		for ele in followers_info:
-			if len(ele) < 200:
-				ele_name = re.findall(res_str3,ele)[0]
-				ele_name = ele_name.replace('"name":"','')
-				ele_url = base_url + re.findall(res_str4,ele)[0]
-				item['followers_list'].extend([[ele_name,ele_url]])
-			else:
-				continue
-		# print(len(item['followers_list']))
-		# print(item['max_page_followers'])
-		print(len(item['followers_list']),(item['max_page_followers'] - 1) * 20)
-		if len(item['followers_list']) >= (item['max_page_followers'] - 1) * 20:  #当粉丝读取完毕
-			print("粉丝读取完毕！")
-			max_page_followings = int(int(item['followings_num'])/20) + 1
-			item['max_page_followings'] = max_page_followings
-			base_url = response.meta['followings_url'] + '?page='
-			for page in range(1,max_page_followings + 1):  
-				followings_url = base_url + str(page)
-				yield scrapy.Request(followings_url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'followings_url':followings_url,'page':page,'max_page_followings':max_page_followings},callback = self.followings_list_p,dont_filter=True)
-
-
-
-	def followings_list_p(self,response):
-
-
-		item = response.meta['ikey']
-		followings_script = response.xpath('//script[@id="js-initialData"]/text()').extract()
-		# time.sleep(5)
-		res_str1 = r'"initialState":(.*?)"unlockTicketStatus"'
-		followings_detail = re.findall(res_str1,followings_script[0])[0]
-		# print(followings_detail)
-
-		res_str2 = r'","urlToken(.*?)","url":"'
-		res_str3 = r'"name":".+'
-		res_str4 = r'":"(.*?)","id":"'
-		followings_info = re.findall(res_str2,followings_detail)
-
-		res_str5 = r'"headline":".+'
-		res_str6 = r'","urlToken":"(.*?)","id":"'
-#or len(followings_info) < 20
-		if followings_info == []:
-			lost_page = response.meta['page']
-			print("第 %d 页关注者丢失！正在重新读取..." % lost_page)
-			yield scrapy.Request(response.url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'page':lost_page,'followings_url':response.meta['followings_url']},callback = self.followings_list_p,dont_filter=True)
-		#这里的dont filter特别重要，因为scrapy会自动过滤重复请求！
-
-		if len(followings_info) != 20 and response.meta['page']!= response.meta['max_page_followings']:
-			lost_page = response.meta['page']
-			print("第 %d 页关注者丢失！正在重新读取..." % lost_page)
-			yield scrapy.Request(response.url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'page':lost_page,'followings_url':response.meta['followings_url'],'max_page_followings':response.meta['max_page_followings']},callback = self.followings_list_p,dont_filter=True)
-
-		#找到关注用户的昵称与url
-		base_url = 'https://www.zhihu.com/people/'
-		# if len(followings_info) < 7:
-		# 	print(followings_info)
-
-		for ele in followings_info:
-			if len(ele) > 300:
-				tmp = re.findall(res_str5,ele)
-				if len(tmp) == 0:
-					continue
-				else:
-				#print(tmp)
-					ele_name = re.findall(res_str3,tmp[0])[0]
+		if len(followers_info) == 20 and err_read_followers1 == 0 :
+			base_url = 'https://www.zhihu.com/people/'
+			for ele in followers_info:
+				# print(len(ele))
+				if len(ele) < 400:    
+					ele_name = re.findall(res_str3,ele)[0]
 					ele_name = ele_name.replace('"name":"','')
-					ele_url = base_url + re.findall(res_str6,tmp[0])[0]
-					item['followings_list'].extend([[ele_name,ele_url]])
-				#print(123)
-			else:
+					ele_url = base_url + re.findall(res_str4,ele)[0]
+					item['followers_list'].extend([[ele_name,ele_url]])
+				else:  #有的粉丝信息
+					ele_name = re.findall(res_str5,ele)[0]
+					ele_name = re.findall(res_str3,ele_name)[0]
+					ele_name = ele_name.replace('"name":"','')
+					ele_url = base_url + re.findall(res_str6,ele)[0]
+					item['followers_list'].extend([[ele_name,ele_url]])
 
-				ele_name = re.findall(res_str3,ele)[0]
-				ele_name = ele_name.replace('"name":"','')
-				ele_url = base_url + re.findall(res_str4,ele)[0]
-				item['followings_list'].extend([[ele_name,ele_url]])
-				# set(item['followings_list'])
+		if response.meta['page'] == response.meta['max_page_followers'] and err_read_followers2 == 0 :
+			if len(followers_info) == (int(item['followers_num'])  % 20):
+				base_url = 'https://www.zhihu.com/people/'
+				for ele in followers_info:
+					# print(len(ele))
+					if len(ele) < 400:    
+						ele_name = re.findall(res_str3,ele)[0]
+						ele_name = ele_name.replace('"name":"','')
+						ele_url = base_url + re.findall(res_str4,ele)[0]
+						item['followers_list'].extend([[ele_name,ele_url]])
+					else:  #有的粉丝信息
+						ele_name = re.findall(res_str5,ele)[0]
+						ele_name = re.findall(res_str3,ele_name)[0]
+						ele_name = ele_name.replace('"name":"','')
+						ele_url = base_url + re.findall(res_str6,ele)[0]
+						item['followers_list'].extend([[ele_name,ele_url]])
 
-		print(len(item['followings_list']),item['followings_num'])
-		if len(item['followings_list']) == item['followings_num']:
-			print(item)
-			yield item
+		print(len(item['followers_list']),item['followers_num'])
+		if len(item['followers_list']) == int(item['followers_num']):  #当粉丝读取完毕
+			print("粉丝读取完毕！")
+			print(item['followers_list'])
+			# flag_read_followers
+			# yield scrapy.Request(followings_url,cookies=self.cookies,headers = self.headers,meta={'ikey':item},callback = self.followings_list_p,dont_filter=True)
+	
+	def followings_list_p(self,response):
+		print('开始读取关注者...')
+
+
+# 	def followings_list_p(self,response):
+
+
+# 		item = response.meta['ikey']
+# 		followings_script = response.xpath('//script[@id="js-initialData"]/text()').extract()
+# 		# time.sleep(5)
+# 		res_str1 = r'"initialState":(.*?)"unlockTicketStatus"'
+# 		followings_detail = re.findall(res_str1,followings_script[0])[0]
+# 		# print(followings_detail)
+
+# 		res_str2 = r'","urlToken(.*?)","url":"'
+# 		res_str3 = r'"name":".+'
+# 		res_str4 = r'":"(.*?)","id":"'
+# 		followings_info = re.findall(res_str2,followings_detail)
+
+# 		res_str5 = r'"headline":".+'
+# 		res_str6 = r'","urlToken":"(.*?)","id":"'
+# #or len(followings_info) < 20
+# 		if followings_info == []:
+# 			lost_page = response.meta['page']
+# 			print("第 %d 页关注者丢失！正在重新读取..." % lost_page)
+# 			yield scrapy.Request(response.url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'page':lost_page,'followings_url':response.meta['followings_url']},callback = self.followings_list_p,dont_filter=True)
+# 		#这里的dont filter特别重要，因为scrapy会自动过滤重复请求！
+
+# 		if len(followings_info) != 20 and response.meta['page']!= response.meta['max_page_followings']:
+# 			lost_page = response.meta['page']
+# 			print("第 %d 页关注者丢失！正在重新读取..." % lost_page)
+# 			yield scrapy.Request(response.url,cookies=self.cookies,headers = self.headers,meta={'ikey':item,'page':lost_page,'followings_url':response.meta['followings_url'],'max_page_followings':response.meta['max_page_followings']},callback = self.followings_list_p,dont_filter=True)
+
+# 		#找到关注用户的昵称与url
+# 		base_url = 'https://www.zhihu.com/people/'
+# 		# if len(followings_info) < 7:
+# 		# 	print(followings_info)
+
+# 		for ele in followings_info:
+# 			if len(ele) > 300:
+# 				tmp = re.findall(res_str5,ele)
+# 				if len(tmp) == 0:
+# 					continue
+# 				else:
+# 				#print(tmp)
+# 					ele_name = re.findall(res_str3,tmp[0])[0]
+# 					ele_name = ele_name.replace('"name":"','')
+# 					ele_url = base_url + re.findall(res_str6,tmp[0])[0]
+# 					item['followings_list'].extend([[ele_name,ele_url]])
+# 				#print(123)
+# 			else:
+
+# 				ele_name = re.findall(res_str3,ele)[0]
+# 				ele_name = ele_name.replace('"name":"','')
+# 				ele_url = base_url + re.findall(res_str4,ele)[0]
+# 				item['followings_list'].extend([[ele_name,ele_url]])
+# 				# set(item['followings_list'])
+
+# 		print(len(item['followings_list']),item['followings_num'])
+# 		if len(item['followings_list']) == item['followings_num']:
+# 			print(item)
+# 			yield item
 			# yield scrapy.Request(url,cookies=self.cookies,headers = self.headers,callback = self.parse)
 
 
