@@ -45,6 +45,7 @@ class ZhLoginSpider(scrapy.Spider):
 		# url = 'https://www.zhihu.com/people/li-li-78-71-6/activities'
 		# url = 'https://www.zhihu.com/people/ping-ba-22/activities'
 		url = 'https://www.zhihu.com/people/da-tu-dou-a-5/activities'
+		url = 'https://www.zhihu.com/people/zhou-ya-ting-32/activities'
 		yield scrapy.Request(url,cookies=self.cookies,headers = self.headers,callback = self.parse)
 	
 	def parse(self,response):
@@ -82,13 +83,15 @@ class ZhLoginSpider(scrapy.Spider):
 		res_str4_1 = r'"locations":(.*?)","url":"'
 		location_str = re.findall(res_str4_1,intro_use)
 		if len(location_str) ==0:
+			res_str4_2 = r'"locations":(.*?)","introduction"'
+			location_str = re.findall(res_str4_2,intro_use)
+		if len(location_str) ==0:
 			location = ''
 		else:
-			# print(len(location_str))
-			# print(location_str[0])
-			res_str4_2 = r'","name":".+'
-			location_str = re.findall(res_str4_2,location_str[0])[0]
+			res_str4_3 = r'","name":".+'
+			location_str = re.findall(res_str4_3,location_str[0])[0]
 			location = location_str.replace('","name":"','')
+
 
 		#user_job 
 		res_str4_1 = r'"business":(.*?)","url":'
