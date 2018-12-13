@@ -40,12 +40,14 @@ class ZhLoginSpider(scrapy.Spider):
 		# url = 'https://www.zhihu.com/people/supergo/activities'
 		url = 'https://www.zhihu.com/people/chen-sheng-du-ruo-4/activities'
 		# url ='https://www.zhihu.com/people/nan-gua-bu-ting-hua/activities'
-		url ='https://www.zhihu.com/people/lin-xi-89-4/activities'
+		
 		url = 'https://www.zhihu.com/people/stayhealthy/activities'
 		# url = 'https://www.zhihu.com/people/li-li-78-71-6/activities'
 		# url = 'https://www.zhihu.com/people/ping-ba-22/activities'
 		url = 'https://www.zhihu.com/people/da-tu-dou-a-5/activities'
 		url = 'https://www.zhihu.com/people/zhou-ya-ting-32/activities'
+		# url ='https://www.zhihu.com/people/lin-xi-89-4/activities'
+		# url = 'https://www.zhihu.com/people/791171/activities'
 		yield scrapy.Request(url,cookies=self.cookies,headers = self.headers,callback = self.parse)
 	
 	def parse(self,response):

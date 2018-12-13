@@ -3,11 +3,11 @@ import scrapy
 import requests
 import time
 import re
-
 import json
 
 from zhihu.items import ZhihuItem
 import time
+import os
 
 #name = 'zhihu_login'
 #capsion_ticket 与 z_c0是两个会更改的参量
@@ -34,141 +34,153 @@ class ZhLoginSpider(scrapy.Spider):
 				'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36',
     
     		}
+	# print(os.listdir())
+	url_list = []
+	# while ~os.path.isfile('followers_list.txt'):
+	# 	pass
+	# print(os.path.isfile('followers_list.txt'))
+	file = open('followers_list.txt','r')
+	data = file.readlines()
+	for ele in data:
+		url_list.append(ele.replace('\n',''))
 
-	def start_requests(self):
+	# print(url_list)
+	print(len(url_list))
+
+	for ele in url_list:
+		# print(ele)
+		def start_requests(self):
+			# url = 'https://www.zhihu.com/people/1024an/activities'
+			url = str(self.ele)
+			yield scrapy.Request(url,cookies=self.cookies,headers = self.headers,callback = self.parse)
 		
+		def parse(self,response):
 
-		url = 'https://www.zhihu.com/people/xupenghuan/activities'
-		url = 'https://www.zhihu.com/people/zhuang-ni-mei-72/activities'
-		url = 'https://www.zhihu.com/people/qing-jiao-wo-bu-yiding/activities'
-		url = 'https://www.zhihu.com/people/zhou-ya-ting-32/following'
-		yield scrapy.Request(url,cookies=self.cookies,headers = self.headers,callback = self.parse)
-	
-	def parse(self,response):
+			#global followers_list
+			item = ZhihuItem()
+			user_name = response.xpath('//span[@class="ProfileHeader-name"]/text()').extract()
+			one_sentence_intro = response.xpath('//span[@class="RichText ztext ProfileHeader-headline"]/text()').extract()
+			
+			#包含个人信息的部分
+			intro_detail = response.xpath('//script[@id="js-initialData"]/text()').extract()[0]
+			res_str1 = r'"initialState":{"common":{"ask":(.*?)}},"questions":'
+			intro_use = re.findall(res_str1,intro_detail)
+			intro_use = intro_use[0]
 
-		#global followers_list
-		item = ZhihuItem()
-		user_name = response.xpath('//span[@class="ProfileHeader-name"]/text()').extract()
-		one_sentence_intro = response.xpath('//span[@class="RichText ztext ProfileHeader-headline"]/text()').extract()
-		
-		#包含个人信息的部分
-		intro_detail = response.xpath('//script[@id="js-initialData"]/text()').extract()[0]
-		res_str1 = r'"initialState":{"common":{"ask":(.*?)}},"questions":'
-		intro_use = re.findall(res_str1,intro_detail)
-		intro_use = intro_use[0]
+			#gender
+			res_str2 = r'"gender":.+'
+			gender_str = re.findall(res_str2,intro_use)[0]
+			if len(gender_str) == 1:
+				gender_num = int(gender_str.replace('"gender":',''))
+			else:
+				gender_num = 1;
+			if gender_num == 1:
+				gender = '男'
+			elif gender_num == 0:
+				gender = '女'
+			else:
+				gender = ''
 
-		#gender
-		res_str2 = r'"gender":.+'
-		gender_str = re.findall(res_str2,intro_use)[0]
-		if len(gender_str) == 1:
-			gender_num = int(gender_str.replace('"gender":',''))
-		else:
-			gender_num = 1;
-		if gender_num == 1:
-			gender = '男'
-		elif gender_num == 0:
-			gender = '女'
-		else:
-			gender = ''
+			#one_sentence_intro
+			res_str3 = r'"headline":"(.*?)","urlToken"'
+			one_sentence_intro = re.findall(res_str3,intro_use)[0]
+			
+			#user_location
+			res_str4_1 = r'"locations":(.*?)","url":"'
+			location_str = re.findall(res_str4_1,intro_use)
+			if len(location_str) ==0:
+				res_str4_2 = r'"locations":(.*?)","introduction"'
+				location_str = re.findall(res_str4_2,intro_use)
+			if len(location_str) ==0:
+				location = ''
+			else:
+				res_str4_3 = r'","name":".+'
+				location_str = re.findall(res_str4_3,location_str[0])[0]
+				location = location_str.replace('","name":"','')
 
-		#one_sentence_intro
-		res_str3 = r'"headline":"(.*?)","urlToken"'
-		one_sentence_intro = re.findall(res_str3,intro_use)[0]
-		
-		#user_location
-		res_str4_1 = r'"locations":(.*?)","url":"'
-		location_str = re.findall(res_str4_1,intro_use)
-		if len(location_str) ==0:
-			res_str4_2 = r'"locations":(.*?)","introduction"'
-			location_str = re.findall(res_str4_2,intro_use)
-		if len(location_str) ==0:
-			location = ''
-		else:
-			res_str4_3 = r'","name":".+'
-			location_str = re.findall(res_str4_3,location_str[0])[0]
-			location = location_str.replace('","name":"','')
-
-		#user_job 
-		res_str4_1 = r'"business":(.*?)","url":'
-		business_str = re.findall(res_str4_1,intro_use)
-		if len(business_str) == 0:
-			business = ''
-		else:
-			res_str4_2 = r'","name":".+'
-			business_str = re.findall(res_str4_2,business_str[0])[0]
-			business = business_str.replace('","name":"','')
-
-		#school&college
-		res_str4_1 = r'"school":(.*?)","url":'
-		education_str = re.findall(res_str4_1,intro_use)
-		if len(education_str) == 0:
-			education = ''
-		elif len(education_str) ==1:
-			res_str4_2 = r'","name":".+'
-			education_str = re.findall(res_str4_2,education_str[0])[0]
-			education = education_str.replace('","name":"','')
-		else:
-			education = []
-			for i in range(len(education_str)):
+			#user_job 
+			res_str4_1 = r'"business":(.*?)","url":'
+			business_str = re.findall(res_str4_1,intro_use)
+			if len(business_str) == 0:
+				business = ''
+			else:
 				res_str4_2 = r'","name":".+'
-				tmp = re.findall(res_str4_2,education_str[i])[0]
-				tmp = tmp.replace('","name":"','')
-				education.append(tmp)
-		#major
+				business_str = re.findall(res_str4_2,business_str[0])[0]
+				business = business_str.replace('","name":"','')
 
-		res_str4_1 = r'"major":(.*?)","url":'
-		major_str = re.findall(res_str4_1,intro_use)
-		if len(major_str) == 0:
-			major = ''
-		else:
-			res_str4_2 = r'","name":".+'
-			major_str = re.findall(res_str4_2,major_str[0])[0]
-			major = major_str.replace('","name":"','')
+			#school&college
+			res_str4_1 = r'"school":(.*?)","url":'
+			education_str = re.findall(res_str4_1,intro_use)
+			if len(education_str) == 0:
+				education = ''
+			elif len(education_str) ==1:
+				res_str4_2 = r'","name":".+'
+				education_str = re.findall(res_str4_2,education_str[0])[0]
+				education = education_str.replace('","name":"','')
+			else:
+				education = []
+				for i in range(len(education_str)):
+					res_str4_2 = r'","name":".+'
+					tmp = re.findall(res_str4_2,education_str[i])[0]
+					tmp = tmp.replace('","name":"','')
+					education.append(tmp)
+			#major
 
-		#brief_introduction
-		res_str4_1 = r'"description":"(.*?)","'
-		brief_intro_str = re.findall(res_str4_1,intro_use)
-		if len(brief_intro_str) == 0:
-			brief_intro = ''
-		else:
-			brief_intro = brief_intro_str[0]
-		# print(response.text)
-		# print(brief_intro)
+			res_str4_1 = r'"major":(.*?)","url":'
+			major_str = re.findall(res_str4_1,intro_use)
+			if len(major_str) == 0:
+				major = ''
+			else:
+				res_str4_2 = r'","name":".+'
+				major_str = re.findall(res_str4_2,major_str[0])[0]
+				major = major_str.replace('","name":"','')
 
-		
-		#followers
-		# https://www.zhihu.com/people/xingzhe8848/activities
-		base_url = 'https://www.zhihu.com'
-		followers_url = response.xpath('//a[@class="Button NumberBoard-item Button--plain"]/@href').extract()[1]
-		followings_url = response.xpath('//a[@class="Button NumberBoard-item Button--plain"]/@href').extract()[0]
-		followers_url = base_url + followers_url 
-		followings_url = base_url + followings_url
-		# followings_url = self.url.replace('activities','followings')
-		# followers_url = self.url.replace('activities','followers')
+			#brief_introduction
+			res_str4_1 = r'"description":"(.*?)","'
+			brief_intro_str = re.findall(res_str4_1,intro_use)
+			if len(brief_intro_str) == 0:
+				brief_intro = ''
+			else:
+				brief_intro = brief_intro_str[0]
+			# print(response.text)
+			# print(brief_intro)
+
+			
+			#followers
+			# https://www.zhihu.com/people/xingzhe8848/activities
+			base_url = 'https://www.zhihu.com'
+			followers_url = response.xpath('//a[@class="Button NumberBoard-item Button--plain"]/@href').extract()[1]
+			followings_url = response.xpath('//a[@class="Button NumberBoard-item Button--plain"]/@href').extract()[0]
+			followers_url = base_url + followers_url 
+			followings_url = base_url + followings_url
+			# followings_url = self.url.replace('activities','followings')
+			# followers_url = self.url.replace('activities','followers')
 
 
-		#followers_num & followings_num
-		followings_num = response.xpath('//strong[@class="NumberBoard-itemValue"]/text()').extract()[0]
-		followers_num = response.xpath('//strong[@class="NumberBoard-itemValue"]/text()').extract()[1]
-		followings_num = followings_num.replace(',','')
-		followers_num = followers_num.replace(',','')
+			#followers_num & followings_num
+			followings_num = response.xpath('//strong[@class="NumberBoard-itemValue"]/text()').extract()[0]
+			followers_num = response.xpath('//strong[@class="NumberBoard-itemValue"]/text()').extract()[1]
+			followings_num = followings_num.replace(',','')
+			followers_num = followers_num.replace(',','')
 
-		item['user_name'] = user_name[0]
-		item['one_sentence_intro'] = one_sentence_intro
-		item['user_gender'] = gender 
-		item['user_location'] = location
-		item['education_exp'] = education
-		item['user_major'] = major
-		item['job_exp'] = business
-		item['brief_intro'] = brief_intro
-		item['followers_list'] = []
-		item['followings_list'] = []
-		item['followers_num'] = followers_num
-		item['followings_num'] = followings_num
-		item['followers_url'] = followers_url
-		item['followings_url'] = followings_url
+			item['user_name'] = user_name[0]
+			item['one_sentence_intro'] = one_sentence_intro
+			item['user_gender'] = gender 
+			item['user_location'] = location
+			item['education_exp'] = education
+			item['user_major'] = major
+			item['job_exp'] = business
+			item['brief_intro'] = brief_intro
+			item['followers_list'] = []
+			item['followings_list'] = []
+			item['followers_num'] = followers_num
+			item['followings_num'] = followings_num
+			item['followers_url'] = followers_url
+			item['followings_url'] = followings_url
 
-		print(location)
+			print(location)
+			yield scrapy.Request(url,cookies=self.cookies,headers = self.headers,callback = self.parse)
+
 
 		#获得粉丝的最大页码
 		# max_page_followers = int(int(followers_num)/20) + 1
