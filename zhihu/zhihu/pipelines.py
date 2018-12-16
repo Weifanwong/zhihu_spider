@@ -51,7 +51,6 @@ class Zhihu_save(object):
 class ZhihuPipeline2(object):
     def process_item(self, item, spider):
         # print(item)
-        print("王伟帆！！！！")
         myset2.insert({'user_name':item['user_name'],'one_sentence_intro':item['one_sentence_intro'],
             'user_gender':item['user_gender'],'user_location':item['user_location'],
             'education_exp':item['education_exp'],'user_major':item['user_major'],
