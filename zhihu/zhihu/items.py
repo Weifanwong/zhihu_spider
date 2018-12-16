@@ -12,7 +12,6 @@ class ZhihuItem(scrapy.Item):
     # define the fields for your item here like:
     # name = scrapy.Field()
     user_name = scrapy.Field()
-    url = scrapy.Field()
     one_sentence_intro = scrapy.Field()
     user_gender = scrapy.Field()
     user_location = scrapy.Field()
@@ -20,8 +19,6 @@ class ZhihuItem(scrapy.Item):
     user_major = scrapy.Field()
     job_exp = scrapy.Field()
     brief_intro = scrapy.Field()
-    answer_title = scrapy.Field()
-    anser_poster = scrapy.Field()
     followers_num = scrapy.Field()
     followers_list = scrapy.Field()
     followings_num = scrapy.Field()
@@ -30,5 +27,7 @@ class ZhihuItem(scrapy.Item):
     max_page_followers = scrapy.Field()
     followers_url =scrapy.Field()
     followings_url =scrapy.Field()
-    
+    # answer_title = scrapy.Field()
+    # anser_poster = scrapy.Field() 
+    # url = scrapy.Field()
 

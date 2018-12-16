@@ -68,8 +68,9 @@ DOWNLOADER_MIDDLEWARES = {
 # Configure item pipelines
 # See https://doc.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-   'zhihu.pipelines.ZhihuPipeline': 300,
-   'zhihu.pipelines.Zhihu_save':330,
+   'zhihu.pipelines.ZhihuPipeline1': 200,
+   'zhihu.pipelines.Zhihu_save':300,
+   'zhihu.pipelines.ZhihuPipeline2': 500,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)

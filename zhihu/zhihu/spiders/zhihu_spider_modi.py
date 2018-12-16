@@ -14,7 +14,9 @@ import time
 
 class ZhLoginSpider(scrapy.Spider):
 	name = 'zhihu'
-
+	custom_settings = {
+	'ITEM_PIPLINES':{'ZhihuPipeline1':200,'Zhihu_save':300},
+	}
 	cookies={
 	'_gads':'ID=6e8f432804cef60c:T=1541602740:S=ALNI_MY3N0Qg8ks3k6pe3zHhUKSaAvNCnA',
 	'_zap':'0cf72f5d-dc99-40d8-9cca-451a23e81323',
